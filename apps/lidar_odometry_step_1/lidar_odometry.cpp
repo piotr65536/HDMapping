@@ -196,10 +196,10 @@ bool load_data(std::vector<std::string> &input_file_names, LidarOdometryParams &
 
         std::cout << "loading points" << std::endl;
         pointsPerFile.resize(laz_files.size());
-        std::mutex mtx;
         std::cout << "start std::transform" << std::endl;
 
-        std::transform(std::execution::par_unseq, std::begin(laz_files), std::end(laz_files), std::begin(pointsPerFile), [&](const std::string &fn)
+        // Use par instead of par_unseq for better thread management on hybrid CPUs
+        std::transform(std::execution::par, std::begin(laz_files), std::end(laz_files), std::begin(pointsPerFile), [&](const std::string &fn)
                        {
                            // Load mapping from id to sn
                            fs::path fnSn(fn);
@@ -228,17 +228,27 @@ bool load_data(std::vector<std::string> &input_file_names, LidarOdometryParams &
                                }
                            }
 
-                           std::unique_lock lck(mtx);
-                           for (const auto &[id, calib] : calibration)
-                           {
-                               std::cout << " id : " << id << std::endl;
-                               std::cout << calib.matrix() << std::endl;
-                           }
+                           // REMOVED: mutex and cout - this was killing parallel performance!
+                           // The calibration logging can be done after transform completes
                            return data;
-                           // std::cout << fn << std::endl;
-                           //
                        });
         std::cout << "std::transform finished" << std::endl;
+        
+        // Log calibration info AFTER parallel work (if needed in debug)
+
+        if (!laz_files.empty() && !preloadedCalibration.empty())
+        {
+            fs::path fnSn(laz_files.front());
+            fnSn.replace_extension(".sn");
+            const auto idToSn = MLvxCalib::GetIdToSnMapping(fnSn.string());
+            auto calibration = MLvxCalib::CombineIntoCalibration(idToSn, preloadedCalibration);
+            std::cout << "Calibration info (first file):" << std::endl;
+            for (const auto &[id, calib] : calibration)
+            {
+                std::cout << " id : " << id << std::endl;
+                std::cout << calib.matrix() << std::endl;
+            }
+        }
 
         if (pointsPerFile.size() > 0)
         {

@@ -13,8 +13,10 @@ The `HD_CPU_OPTIMIZATION` CMake variable controls which optimization strategy is
 | Option | Description | Use Case |
 |--------|-------------|----------|
 | `AUTO` | **Default** - Automatically detects CPU and applies optimal flags | Recommended for most users |
-| `AMD` | Aggressive optimizations for AMD processors | Force AMD optimizations |
-| `INTEL` | Conservative optimizations for Intel processors | Force Intel optimizations |
+| `AMD` | Aggressive optimizations for AMD processors (AVX2) | Force AMD optimizations |
+| `AMD_AVX512` | AVX-512 optimizations for AMD Zen 4+ (Ryzen 7000+) | Only for AMD CPUs with AVX-512 |
+| `INTEL` | Optimizations for Intel processors (AVX2) | Force Intel optimizations |
+| `INTEL_AVX512` | AVX-512 optimizations for Intel (use with caution) | Only if CPU supports AVX-512 without throttling |
 | `GENERIC` | Safe, universal optimizations | Maximum compatibility |
 
 ## 🔧 Build Configuration
@@ -37,11 +39,17 @@ cmake --build . --config Release
 
 #### Force specific CPU optimization:
 ```bash
-# Force AMD optimizations (aggressive performance)
+# Force AMD optimizations (AVX2, recommended)
 cmake .. -DCMAKE_BUILD_TYPE=Release -DHD_CPU_OPTIMIZATION=AMD
 
-# Force Intel optimizations (conservative, stable)
+# Force AMD AVX-512 (Ryzen 7000+ only)
+cmake .. -DCMAKE_BUILD_TYPE=Release -DHD_CPU_OPTIMIZATION=AMD_AVX512
+
+# Force Intel optimizations (AVX2, recommended)
 cmake .. -DCMAKE_BUILD_TYPE=Release -DHD_CPU_OPTIMIZATION=INTEL
+
+# Force Intel AVX-512 (with caution, may throttle)
+cmake .. -DCMAKE_BUILD_TYPE=Release -DHD_CPU_OPTIMIZATION=INTEL_AVX512
 
 # Generic optimizations (maximum compatibility)
 cmake .. -DCMAKE_BUILD_TYPE=Release -DHD_CPU_OPTIMIZATION=GENERIC
@@ -77,10 +85,37 @@ When `HD_CPU_OPTIMIZATION=AUTO` (or not specified), the system:
 
 #### GCC/Clang (Linux/macOS):
 - **Optimization flags:** `-O3 -march=x86-64 -mtune=generic`
-- **SIMD:** `-mavx2` if supported
+- **SIMD:** `-mavx2 -msse4.2 -msse4.1` if supported
 - **Defines:** `-DNDEBUG`
 
 **Best for:** AMD processors, maximum performance scenarios, compute-intensive tasks
+
+### AMD AVX-512 Optimizations (`HD_CPU_OPTIMIZATION=AMD_AVX512`)
+**Target:** AMD Ryzen 7000 series (Zen 4) and newer
+
+⚠️ **IMPORTANT:** AVX-512 is only available on:
+- AMD Ryzen 7000 series (Zen 4) - Desktop/Mobile
+- AMD EPYC Genoa (4th gen) and later
+- **NOT available on Zen 3 or earlier**
+
+#### MSVC (Visual Studio):
+- **SIMD:** `AVX512` (512-bit vector operations)
+- **All other flags same as AMD mode**
+
+#### GCC/Clang (Linux/macOS):
+- **Optimization flags:** `-O3 -march=x86-64 -mtune=generic`
+- **SIMD:** `-mavx512f -mavx2 -msse4.2 -msse4.1`
+- **Defines:** `-DNDEBUG`
+
+**Only use if:**
+- You have Ryzen 7000+ or EPYC Genoa+
+- You've verified the performance gain
+- Your workload benefits from 512-bit vectors
+
+**Performance Notes:**
+- AMD's AVX-512 implementation is generally faster than Intel's
+- Less frequency throttling on AMD (better power management)
+- Full-width execution (2x 256-bit → 1x 512-bit on AMD)
 
 ### Intel Optimizations (`HD_CPU_OPTIMIZATION=INTEL`)
 **Target:** Intel Core, Xeon, and compatible processors
@@ -89,14 +124,36 @@ When `HD_CPU_OPTIMIZATION=AUTO` (or not specified), the system:
 - **Optimization flags:** `/O2` (conservative optimization)
 - **Base optimization:** `/GL` (whole program optimization)
 - **Linking:** `/LTCG` (Link Time Code Generation)
-- **SIMD:** `AVX` (conservative, widely supported)
+- **SIMD:** `AVX2` (recommended for 4th gen+) or `AVX` fallback
 
 #### GCC/Clang (Linux/macOS):
 - **Optimization flags:** `-O2 -march=x86-64 -mtune=intel`
-- **SIMD:** `-mavx` (conservative AVX)
+- **SIMD:** `-mavx2` or `-mavx` (fallback)
 - **Defines:** `-DNDEBUG`
 
 **Best for:** Intel processors, stability-critical applications, production environments
+
+### Intel AVX-512 Optimizations (`HD_CPU_OPTIMIZATION=INTEL_AVX512`)
+**Target:** Intel 10th gen+ with AVX-512 support
+
+⚠️ **WARNING:** AVX-512 can cause:
+- Frequency throttling on some Intel CPUs (10th-12th gen especially)
+- Runtime errors if CPU doesn't fully support AVX-512
+- "Corrupted file" errors on incompatible systems
+
+#### MSVC (Visual Studio):
+- **SIMD:** `AVX512` (512-bit vector operations)
+- **All other flags same as INTEL mode**
+
+**Only use if:**
+- Your specific CPU model supports AVX-512 without throttling
+- You've verified no stability issues
+- Performance gains justify potential frequency reduction
+
+**Recommended CPUs for AVX-512:**
+- Intel Xeon Scalable (Skylake-SP and later)
+- Intel Core 11th gen+ (Rocket Lake, Alder Lake P-cores)
+- Avoid on: 10th gen (Ice Lake mobile), 12th gen E-cores
 
 ### Generic Optimizations (`HD_CPU_OPTIMIZATION=GENERIC`)
 **Target:** Any x86-64 processor, maximum compatibility
@@ -157,7 +214,22 @@ The system provides clear feedback about optimization selection:
 
 ### Common Issues:
 
-#### 1. Performance Degradation on Intel CPUs
+#### 1. "The file or directory is corrupted and unreadable" Error
+**Problem:** Executable crashes immediately with corruption error on Windows
+**Cause:** Binary built with AVX-512 instructions that your CPU doesn't support, or partial AVX-512 support causing illegal instructions
+**Solution:**
+```bash
+# Clean and rebuild WITHOUT AVX-512
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DHD_CPU_OPTIMIZATION=INTEL
+cmake --build . --config Release --clean-first
+
+# Or use AUTO mode (AVX2 by default)
+cmake .. -DCMAKE_BUILD_TYPE=Release -DHD_CPU_OPTIMIZATION=AUTO
+cmake --build . --config Release --clean-first
+```
+
+#### 2. Performance Degradation on Intel CPUs
 **Problem:** Poor performance on Intel processors with AMD optimizations
 **Solution:**
 ```bash
@@ -165,7 +237,7 @@ cmake .. -DHD_CPU_OPTIMIZATION=INTEL
 cmake --build . --config Release
 ```
 
-#### 2. Build Failures with Aggressive Optimizations
+#### 3. Build Failures with Aggressive Optimizations
 **Problem:** Compilation errors with aggressive flags
 **Solution:**
 ```bash
@@ -173,7 +245,7 @@ cmake .. -DHD_CPU_OPTIMIZATION=GENERIC
 cmake --build . --config Release
 ```
 
-#### 3. Unknown CPU Detection
+#### 4. Unknown CPU Detection
 **Problem:** AUTO mode doesn't detect CPU correctly
 **Solution:** Use explicit mode:
 ```bash
@@ -182,6 +254,15 @@ cmake .. -DHD_CPU_OPTIMIZATION=AMD
 
 # For Intel CPUs
 cmake .. -DHD_CPU_OPTIMIZATION=INTEL
+```
+
+#### 5. AVX-512 Frequency Throttling
+**Problem:** Performance drops when using AVX-512 mode
+**Cause:** Intel CPUs reduce frequency when executing AVX-512 instructions to stay within power limits
+**Solution:** Use AVX2 mode instead:
+```bash
+cmake .. -DHD_CPU_OPTIMIZATION=INTEL
+cmake --build . --config Release
 ```
 
 ## 🔧 Advanced Usage
