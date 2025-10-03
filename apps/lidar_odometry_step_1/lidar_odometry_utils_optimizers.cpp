@@ -1,6 +1,7 @@
 #include "lidar_odometry_utils.h"
 #include <hash_utils.h>
 #include <mutex>
+#include <thread>
 
 #include <export_laz.h>
 // extern std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> global_tmp;
@@ -1402,7 +1403,8 @@ void optimize_lidar_odometry(std::vector<Point3Di> &intermediate_points,
     AtPBndt.setZero();
     Eigen::Vector3d b_indoor(rgd_params_indoor.resolution_X, rgd_params_indoor.resolution_Y, rgd_params_indoor.resolution_Z);
 
-    std::vector<std::mutex> mutexes(intermediate_trajectory.size());
+    // Use per-pose mutexes (much less contention than per-point locking)
+    std::vector<std::mutex> pose_mutexes(intermediate_trajectory.size());
 
     const auto hessian_fun_indoor = [&](const Point3Di &intermediate_points_i)
     {
@@ -1488,15 +1490,15 @@ void optimize_lidar_odometry(std::vector<Point3Di> &intermediate_points,
         AtPA *= w;
         AtPB *= w;
 
-        std::mutex &m = mutexes[intermediate_points_i.index_pose];
-        std::unique_lock lck(m);
+        // Lock only the specific pose being updated (not all poses)
+        std::lock_guard<std::mutex> lock(pose_mutexes[intermediate_points_i.index_pose]);
         AtPAndt.block<6, 6>(c, c) += AtPA;
         AtPBndt.block<6, 1>(c, 0) -= AtPB;
     };
 
     if (multithread)
     {
-        std::for_each(std::execution::par_unseq, std::begin(intermediate_points), std::end(intermediate_points), hessian_fun_indoor);
+        std::for_each(std::execution::par, std::begin(intermediate_points), std::end(intermediate_points), hessian_fun_indoor);
     }
     else
     {
@@ -1585,15 +1587,15 @@ void optimize_lidar_odometry(std::vector<Point3Di> &intermediate_points,
         AtPA *= planarity;
         AtPB *= planarity;
 
-        std::mutex &m = mutexes[intermediate_points_i.index_pose];
-        std::unique_lock lck(m);
+        // Lock only the specific pose being updated (not all poses)
+        std::lock_guard<std::mutex> lock(pose_mutexes[intermediate_points_i.index_pose]);
         AtPAndt.block<6, 6>(c, c) += AtPA;
         AtPBndt.block<6, 1>(c, 0) -= AtPB;
     };
 
     if (multithread)
     {
-        std::for_each(std::execution::par_unseq, std::begin(intermediate_points), std::end(intermediate_points), hessian_fun_outdoor);
+        std::for_each(std::execution::par, std::begin(intermediate_points), std::end(intermediate_points), hessian_fun_outdoor);
     }
     else
     {
