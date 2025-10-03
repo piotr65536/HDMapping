@@ -1,5 +1,4 @@
 #include "lidar_odometry.h"
-#include <mutex>
 
 namespace fs = std::filesystem;
 

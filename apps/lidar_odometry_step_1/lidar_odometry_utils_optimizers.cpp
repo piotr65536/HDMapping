@@ -2,6 +2,7 @@
 #include <hash_utils.h>
 #include <mutex>
 #include <thread>
+#include <atomic>
 
 #include <export_laz.h>
 // extern std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> global_tmp;
@@ -1403,8 +1404,9 @@ void optimize_lidar_odometry(std::vector<Point3Di> &intermediate_points,
     AtPBndt.setZero();
     Eigen::Vector3d b_indoor(rgd_params_indoor.resolution_X, rgd_params_indoor.resolution_Y, rgd_params_indoor.resolution_Z);
 
-    // Use per-pose mutexes (much less contention than per-point locking)
-    std::vector<std::mutex> pose_mutexes(intermediate_trajectory.size());
+    // Use mutex sharding - 256 mutexes for all poses (reduced contention)
+    const size_t NUM_SHARDS = 256;
+    std::vector<std::mutex> shard_mutexes(NUM_SHARDS);
 
     const auto hessian_fun_indoor = [&](const Point3Di &intermediate_points_i)
     {
@@ -1490,8 +1492,9 @@ void optimize_lidar_odometry(std::vector<Point3Di> &intermediate_points,
         AtPA *= w;
         AtPB *= w;
 
-        // Lock only the specific pose being updated (not all poses)
-        std::lock_guard<std::mutex> lock(pose_mutexes[intermediate_points_i.index_pose]);
+        // Use sharded mutex - spread locks across 256 shards
+        size_t shard_id = intermediate_points_i.index_pose % NUM_SHARDS;
+        std::lock_guard<std::mutex> lock(shard_mutexes[shard_id]);
         AtPAndt.block<6, 6>(c, c) += AtPA;
         AtPBndt.block<6, 1>(c, 0) -= AtPB;
     };
@@ -1587,8 +1590,9 @@ void optimize_lidar_odometry(std::vector<Point3Di> &intermediate_points,
         AtPA *= planarity;
         AtPB *= planarity;
 
-        // Lock only the specific pose being updated (not all poses)
-        std::lock_guard<std::mutex> lock(pose_mutexes[intermediate_points_i.index_pose]);
+        // Use sharded mutex - spread locks across 256 shards
+        size_t shard_id = intermediate_points_i.index_pose % NUM_SHARDS;
+        std::lock_guard<std::mutex> lock(shard_mutexes[shard_id]);
         AtPAndt.block<6, 6>(c, c) += AtPA;
         AtPBndt.block<6, 1>(c, 0) -= AtPB;
     };
