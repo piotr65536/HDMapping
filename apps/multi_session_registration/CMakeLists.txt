@@ -39,6 +39,7 @@ target_include_directories(
 
 target_link_libraries(
   multi_session_registration_step_3
+  PRIVATE
   ${GLFW_LIBRARY}
   ${OPENGL_gl_LIBRARY}
   OpenGL::GLU
@@ -46,6 +47,14 @@ target_link_libraries(
   ${PLATFORM_MISCELLANEOUS_LIBS}
   ${CORE_LIBRARIES}
   ${GUI_LIBRARIES})
+
+# Link GLEW library on Windows
+if(WIN32)
+  target_link_libraries(
+    multi_session_registration_step_3
+    PRIVATE
+    ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/lib/Release/x64/glew32.lib)
+endif()
 
 if(WIN32)
   add_custom_command(
@@ -55,6 +64,10 @@ if(WIN32)
       ${CMAKE_COMMAND} -E copy
       $<TARGET_RUNTIME_DLLS:multi_session_registration_step_3>
       $<TARGET_FILE_DIR:multi_session_registration_step_3>
+    COMMAND
+    ${CMAKE_COMMAND} -E copy_if_different
+    ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/bin/Release/x64/glew32.dll
+    $<TARGET_FILE_DIR:multi_session_registration_step_3>
     COMMAND_EXPAND_LISTS)
 endif()
 

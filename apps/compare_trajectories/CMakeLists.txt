@@ -38,6 +38,13 @@ target_link_libraries(
   ${GUI_LIBRARIES}
   ${PLATFORM_MISCELLANEOUS_LIBS})
 
+# Link GLEW library on Windows
+if(WIN32)
+  target_link_libraries(
+    mandeye_compare_trajectories
+    PRIVATE ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/lib/Release/x64/glew32.lib)
+endif()
+
 if(WIN32)
   add_custom_command(
     TARGET mandeye_compare_trajectories
@@ -45,6 +52,10 @@ if(WIN32)
     COMMAND
     ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:mandeye_raw_data_viewer>
     $<TARGET_FILE_DIR:mandeye_raw_data_viewer>
+    COMMAND
+    ${CMAKE_COMMAND} -E copy_if_different
+    ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/bin/Release/x64/glew32.dll
+    $<TARGET_FILE_DIR:mandeye_compare_trajectories>
     COMMAND_EXPAND_LISTS)
 endif()
 

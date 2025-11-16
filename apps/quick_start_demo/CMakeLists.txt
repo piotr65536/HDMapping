@@ -39,12 +39,23 @@ target_link_libraries(
   ${GUI_LIBRARIES}
   ${PLATFORM_MISCELLANEOUS_LIBS})
 
+# Link GLEW library on Windows
+if(WIN32)
+  target_link_libraries(
+    quick_start_demo
+    PRIVATE ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/lib/Release/x64/glew32.lib)
+endif()
+
 if(WIN32)
   add_custom_command(
     TARGET quick_start_demo
     POST_BUILD
     COMMAND
     ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:quick_start_demo>
+    $<TARGET_FILE_DIR:quick_start_demo>
+    COMMAND
+    ${CMAKE_COMMAND} -E copy_if_different
+    ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/bin/Release/x64/glew32.dll
     $<TARGET_FILE_DIR:quick_start_demo>
     COMMAND_EXPAND_LISTS)
 endif()

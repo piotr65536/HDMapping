@@ -14,6 +14,7 @@
 
 // Include GLU for utility functions like gluPerspective
 #ifdef _WIN32
+#include <GL/gl.h>
 #include <GL/glu.h>
 #else
 #include <OpenGL/glu.h>

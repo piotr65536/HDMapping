@@ -7,7 +7,10 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #ifdef _WIN32
+#include <GL/gl.h>
 #include <GL/glu.h>
+#undef min
+#undef max
 #else
 #include <OpenGL/glu.h>
 #endif
@@ -48,6 +51,9 @@ bool gui_mouse_down{false};
 float mouse_sensitivity = 1.0;
 bool move_source_trajectory_with_gizmo = false;
 bool show_correspondences = false;
+
+// Global GLFW window
+static GLFWwindow* g_Window = nullptr;
 
 float m_ortho_projection[] = {1, 0, 0, 0,
                               0, 1, 0, 0,
@@ -931,13 +937,133 @@ void display()
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 }
 
+// Forward declarations for callbacks
+void display();
+void mouse(int glut_button, int state, int x, int y);
+void motion(int x, int y);
+void reshape(int w, int h);
+void wheel(int button, int dir, int x, int y);
+
+// GLFW callback adapters
+static void glfw_error_callback(int error, const char* description)
+{
+    fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+
+static void glfw_framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    reshape(width, height);
+}
+
+static void glfw_cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    motion(static_cast<int>(xpos), static_cast<int>(ypos));
+}
+
+static void glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+    mouse(button, action == GLFW_PRESS ? 0 : 1, static_cast<int>(xpos), static_cast<int>(ypos));
+}
+
+static void glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+    wheel(0, yoffset > 0 ? 1 : -1, static_cast<int>(xpos), static_cast<int>(ypos));
+}
+
 bool initGL(int *argc, char **argv)
 {
-    initGL("mandeye trajectory compare data viewer " HDMAPPING_VERSION_STRING, window_width, window_height, display, mouse, motion, reshape);
+    glfwSetErrorCallback(glfw_error_callback);
+    
+    if (!glfwInit())
+    {
+        fprintf(stderr, "Failed to initialize GLFW\n");
+        return false;
+    }
+    
+    // Create window
+    g_Window = glfwCreateWindow(window_width, window_height, 
+                                 "mandeye trajectory compare data viewer " HDMAPPING_VERSION_STRING, 
+                                 NULL, NULL);
+    if (g_Window == NULL)
+    {
+        fprintf(stderr, "Failed to create GLFW window\n");
+        glfwTerminate();
+        return false;
+    }
+    
+    glfwMakeContextCurrent(g_Window);
+    glfwSwapInterval(1); // Enable vsync
+    
+    // Set up callbacks
+    glfwSetFramebufferSizeCallback(g_Window, glfw_framebuffer_size_callback);
+    glfwSetCursorPosCallback(g_Window, glfw_cursor_position_callback);
+    glfwSetMouseButtonCallback(g_Window, glfw_mouse_button_callback);
+    glfwSetScrollCallback(g_Window, glfw_scroll_callback);
+    
+    // Initialize GLEW
+    glewExperimental = GL_TRUE;
+    if (glewInit() != GLEW_OK)
+    {
+        fprintf(stderr, "Failed to initialize GLEW\n");
+        return false;
+    }
+    
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuizmo::SetImGuiContext(ImGui::GetCurrentContext());
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    
+    // Setup ImGui style
+    ImGui::StyleColorsDark();
+    
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(g_Window, true);
+    ImGui_ImplOpenGL2_Init();
+    
+    // Call reshape to set up initial viewport
+    int width, height;
+    glfwGetFramebufferSize(g_Window, &width, &height);
+    reshape(width, height);
+    
     return true;
 }
 
-void wheel(int button, int dir, int x, int y);
+void runMainLoop()
+{
+    while (!glfwWindowShouldClose(g_Window))
+    {
+        glfwPollEvents();
+        
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL2_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        ImGuizmo::BeginFrame();
+        
+        // Render
+        display();
+        
+        // Rendering ImGui
+        ImGui::Render();
+        ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+        
+        glfwSwapBuffers(g_Window);
+    }
+    
+    // Cleanup
+    ImGui_ImplOpenGL2_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    
+    glfwDestroyWindow(g_Window);
+    glfwTerminate();
+}
 
 void mouse(int glut_button, int state, int x, int y)
 {
@@ -1034,7 +1160,6 @@ int main(int argc, char *argv[])
         // std::abort();
     }
     initGL(&argc, argv);
-    setMouseWheelCallback(wheel);
     runMainLoop();
     return 0;
 }

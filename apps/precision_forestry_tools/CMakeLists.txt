@@ -20,6 +20,13 @@ target_link_libraries(
           ${PLATFORM_MISCELLANEOUS_LIBS}
           ${CORE_LIBRARIES})
 
+# Link GLEW library on Windows
+if(WIN32)
+  target_link_libraries(
+    precision_forestry_tools
+    PRIVATE ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/lib/Release/x64/glew32.lib)
+endif()
+
 target_include_directories(
   precision_forestry_tools
   PRIVATE include
@@ -42,6 +49,10 @@ if(WIN32)
     COMMAND
       ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:precision_forestry_tools>
       $<TARGET_FILE_DIR:precision_forestry_tools>
+    COMMAND
+    ${CMAKE_COMMAND} -E copy_if_different
+    ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/bin/Release/x64/glew32.dll
+    $<TARGET_FILE_DIR:precision_forestry_tools>
     COMMAND_EXPAND_LISTS)
 endif()
 
