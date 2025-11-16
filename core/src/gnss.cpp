@@ -9,7 +9,7 @@
 #include <laszip/laszip_api.h>
 #include <nmea.h>
 #if WITH_GUI == 1
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 #endif
 
 inline void split(std::string &str, char delim, std::vector<std::string> &out)

@@ -20,7 +20,7 @@ target_include_directories(
           ${LASZIP_INCLUDE_DIR}/LASzip/include
           ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/include
           ${EXTERNAL_LIBRARIES_DIRECTORY}/observation_equations/codes
-          ${FREEGLUT_INCLUDE_DIR})
+          ${GLFW_INCLUDE_DIR})
 
 target_link_libraries(split_multi_livox PRIVATE core ${PLATFORM_LASZIP_LIB}
                                                 ${PLATFORM_MISCELLANEOUS_LIBS})

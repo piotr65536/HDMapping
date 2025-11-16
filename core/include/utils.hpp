@@ -4,6 +4,9 @@
 #include <structures.h>
 #include <registration_plane_feature.h>
 
+// Forward declare GLFW window type
+struct GLFWwindow;
+
 ///////////////////////////////////////////////////////////////////////////////////
 
 const std::string out_fn = "Output file name";
@@ -89,6 +92,10 @@ void motion(int x, int y);
 void specialDown(int key, int x, int y);
 void specialUp(int key, int x, int y);
 bool initGL(int* argc, char** argv, const std::string& winTitle, void (*display)(), void (*mouse)(int, int, int, int));
+
+// GLFW-specific functions
+GLFWwindow* getGLFWWindow();
+void runMainLoop();
 
 void showAxes();
 void updateCameraTransition();

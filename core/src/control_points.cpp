@@ -2,7 +2,7 @@
 #include <python-scripts/point-to-point-metrics/point_to_point_source_to_target_tait_bryan_wc_jacobian.h>
 #if WITH_GUI == 1
 #include <imgui.h>
-#include <imgui_impl_glut.h>
+#include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl2.h>
 #include <imgui_internal.h>
 
@@ -394,17 +394,19 @@ void ControlPoints::render(const PointClouds &point_clouds_container)
             draw_ellipse(covar, gcp, Eigen::Vector3f(0.5, 0.5, 0.5), 1.0f);
         }
 
-        glColor3f(0, 0, 0);
-        glRasterPos3f(cps[i].x_target_global, cps[i].y_target_global, cps[i].z_target_global + 0.1);
-        glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)cps[i].name);
+        // Note: GLFW doesn't have bitmap font rendering like GLUT
+        // Text labels should be rendered using ImGui overlays instead
+        // glColor3f(0, 0, 0);
+        // glRasterPos3f(cps[i].x_target_global, cps[i].y_target_global, cps[i].z_target_global + 0.1);
+        // glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)cps[i].name);
 
-        glColor3f(0, 0, 0);
-        glRasterPos3f(cps[i].x_target_global, cps[i].y_target_global, cps[i].z_target_global);
-        glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_10, (const unsigned char *)("CP"));
+        // glColor3f(0, 0, 0);
+        // glRasterPos3f(cps[i].x_target_global, cps[i].y_target_global, cps[i].z_target_global);
+        // glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_10, (const unsigned char *)("CP"));
 
-        glColor3f(0, 0, 0);
-        glRasterPos3f(c.x(), c.y(), c.z());
-        glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_10, (const unsigned char *)("Point assigned to CP"));
+        // glColor3f(0, 0, 0);
+        // glRasterPos3f(c.x(), c.y(), c.z());
+        // glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_10, (const unsigned char *)("Point assigned to CP"));
     }
 
     return;

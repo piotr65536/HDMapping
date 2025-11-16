@@ -7,7 +7,7 @@
 #include <observation_picking.h>
 #include <pose_graph_loop_closure.h>
 #include <imgui.h>
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 
 class ManualPoseGraphLoopClosure : public PoseGraphLoopClosure
 {

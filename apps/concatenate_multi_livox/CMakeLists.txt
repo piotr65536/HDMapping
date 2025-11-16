@@ -21,7 +21,7 @@ target_include_directories(
           ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/include
           ${EXTERNAL_LIBRARIES_DIRECTORY}/observation_equations/codes
           ${EXTERNAL_LIBRARIES_DIRECTORY}/Fusion/Fusion
-          ${FREEGLUT_INCLUDE_DIR})
+          ${GLFW_INCLUDE_DIR})
 
 target_link_libraries(concatenate_multi_livox PRIVATE core ${PLATFORM_LASZIP_LIB}
                                                 ${PLATFORM_MISCELLANEOUS_LIBS})

@@ -1,11 +1,16 @@
 #include <imgui.h>
-#include <imgui_impl_glut.h>
+#include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl2.h>
 #include <ImGuizmo.h>
 #include <imgui_internal.h>
 
 #include <GL/glew.h>
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
+#ifdef _WIN32
+#include <GL/glu.h>
+#else
+#include <OpenGL/glu.h>
+#endif
 
 #include <Eigen/Eigen>
 
@@ -150,7 +155,7 @@ void display() {
     }
 
     ImGui_ImplOpenGL2_NewFrame();
-    ImGui_ImplGLUT_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
 
     //my_display_code();
     project_setings.imgui(odo_with_gnss_fusion, laz_wrapper.sectors, roi_exporter.rois_with_constraints, common_data);
@@ -180,9 +185,6 @@ void display() {
 
     ImGui::Render();
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
-
-    glutSwapBuffers();
-    glutPostRedisplay();
 }
 
 void motion(int x, int y) {
@@ -215,30 +217,29 @@ void motion(int x, int y) {
         mouse_old_x = x;
         mouse_old_y = y;
     }
-    glutPostRedisplay();
 }
 
 void mouse(int glut_button, int state, int x, int y) {
     ImGuiIO& io = ImGui::GetIO();
     io.MousePos = ImVec2((float)x, (float)y);
     int button = -1;
-    if (glut_button == GLUT_LEFT_BUTTON) button = 0;
-    if (glut_button == GLUT_RIGHT_BUTTON) button = 1;
-    if (glut_button == GLUT_MIDDLE_BUTTON) button = 2;
-    if (button != -1 && state == GLUT_DOWN)
+    if (glut_button == 0) button = 0; // Left button
+    if (glut_button == 1) button = 1; // Right button
+    if (glut_button == 2) button = 2; // Middle button
+    if (button != -1 && state == 0) // Button down
         io.MouseDown[button] = true;
-    if (button != -1 && state == GLUT_UP)
+    if (button != -1 && state == 1) // Button up
         io.MouseDown[button] = false;
 
     if (!io.WantCaptureMouse)
     {
-        if (state == GLUT_DOWN) {
+        if (state == 0) { // Button down
             mouse_buttons |= 1 << glut_button;
             if (common_data.is_ortho && button == 0) {
                 common_data.roi = GLWidgetGetOGLPos(x, y, 0.0);
             }
         }
-        else if (state == GLUT_UP) {
+        else if (state == 1) { // Button up
             mouse_buttons = 0;
         }
         mouse_old_x = x;
@@ -261,47 +262,13 @@ void reshape(int w, int h) {
 }
 
 bool initGL(int* argc, char** argv) {
-    glutInit(argc, argv);
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-    glutInitWindowSize(window_width, window_height);
-    glutCreateWindow("hd_mapper " HDMAPPING_VERSION_STRING);
-    glutDisplayFunc(display);
-    glutMotionFunc(motion);
-
-    // default initialization
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    glEnable(GL_DEPTH_TEST);
-
-    // viewport
-    glViewport(0, 0, window_width, window_height);
-
-    // projection
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(60.0, (GLfloat)window_width / (GLfloat)window_height, 0.01, 10000.0);
-    glutReshapeFunc(reshape);
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-
-    ImGui::StyleColorsDark();
-    ImGui_ImplGLUT_Init();
-    ImGui_ImplGLUT_InstallFuncs();
-    ImGui_ImplOpenGL2_Init();
+    initGL("hd_mapper " HDMAPPING_VERSION_STRING, window_width, window_height, display, mouse, motion, reshape);
     return true;
 }
 
 int main(int argc, char **argv){
     initGL(&argc, argv);
-    glutDisplayFunc(display);
-    glutMouseFunc(mouse);
-    glutMotionFunc(motion);
-    glutMainLoop();
-
-    ImGui_ImplOpenGL2_Shutdown();
-    ImGui_ImplGLUT_Shutdown();
-
-    ImGui::DestroyContext();
+    runMainLoop();
     return 0;
 }
 

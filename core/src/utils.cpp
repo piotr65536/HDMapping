@@ -1,8 +1,24 @@
 #include "utils.hpp"
-#include <imgui_impl_glut.h>
+#include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl2.h>
-//#include <GL/glut.h>
-#include <GL/freeglut.h>
+
+// Enable GLFW native access for platform-specific features (like window icons on Windows)
+#ifdef _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#endif
+
+#include <GLFW/glfw3.h>
+#ifdef _WIN32
+#include <GLFW/glfw3native.h>
+#endif
+
+// Include GLU for utility functions like gluPerspective
+#ifdef _WIN32
+#include <GL/glu.h>
+#else
+#include <OpenGL/glu.h>
+#endif
+
 #include <cmath>
 #include <cstdio>
 #include <iostream>
@@ -12,6 +28,9 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <shellapi.h>
+// Undefine min/max macros from windows.h to avoid conflicts with std::min/std::max
+#undef min
+#undef max
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -21,6 +40,7 @@ int viewer_decimate_point_cloud = 1000;
 int mouse_old_x, mouse_old_y;
 int mouse_buttons = 0;
 float mouse_sensitivity = 1.0;
+bool gui_mouse_down = false;
 
 bool is_ortho = false;
 bool show_axes = true;
@@ -301,97 +321,145 @@ void motion(int x, int y)
         mouse_old_x = x;
         mouse_old_y = y;
     }
-    glutPostRedisplay();
 }
 
-//SpecialKeys handlers needed because of ImGui version <1.89 bug in handling keys
+// GLFW doesn't need special key handlers as ImGui handles them internally
 void specialDown(int key, int x, int y)
 {
-    ImGuiIO& io = ImGui::GetIO();
-    switch (key)
-    {
-    case GLUT_KEY_UP:    io.KeysDown[ImGuiKey_UpArrow] = true; break;
-    case GLUT_KEY_DOWN:  io.KeysDown[ImGuiKey_DownArrow] = true; break;
-    case GLUT_KEY_LEFT:  io.KeysDown[ImGuiKey_LeftArrow] = true; break;
-    case GLUT_KEY_RIGHT: io.KeysDown[ImGuiKey_RightArrow] = true; break;
-    case GLUT_KEY_PAGE_UP:   io.KeysDown[ImGuiKey_PageUp] = true; break;
-    case GLUT_KEY_PAGE_DOWN: io.KeysDown[ImGuiKey_PageDown] = true; break;
-    }
-
-    int mods = glutGetModifiers();
-    io.KeyCtrl = (mods & GLUT_ACTIVE_CTRL) != 0;
-    io.KeyShift = (mods & GLUT_ACTIVE_SHIFT) != 0;
-    io.KeyAlt = (mods & GLUT_ACTIVE_ALT) != 0;
+    // Not used with GLFW - ImGui handles key events directly
 }
 
 void specialUp(int key, int x, int y)
 {
-    ImGuiIO& io = ImGui::GetIO();
-    switch (key)
-    {
-    case GLUT_KEY_UP:    io.KeysDown[ImGuiKey_UpArrow] = false; break;
-    case GLUT_KEY_DOWN:  io.KeysDown[ImGuiKey_DownArrow] = false; break;
-    case GLUT_KEY_LEFT:  io.KeysDown[ImGuiKey_LeftArrow] = false; break;
-    case GLUT_KEY_RIGHT: io.KeysDown[ImGuiKey_RightArrow] = false; break;
-    case GLUT_KEY_PAGE_UP:   io.KeysDown[ImGuiKey_PageUp] = false; break;
-    case GLUT_KEY_PAGE_DOWN: io.KeysDown[ImGuiKey_PageDown] = false; break;
-    }
+    // Not used with GLFW - ImGui handles key events directly
+}
 
-    int mods = glutGetModifiers();
-    io.KeyCtrl = (mods & GLUT_ACTIVE_CTRL) != 0;
-    io.KeyShift = (mods & GLUT_ACTIVE_SHIFT) != 0;
-    io.KeyAlt = (mods & GLUT_ACTIVE_ALT) != 0;
+// Global GLFW window pointer - needed for callbacks
+static GLFWwindow* g_Window = nullptr;
+static void (*g_DisplayFunc)() = nullptr;
+static void (*g_MouseFunc)(int, int, int, int) = nullptr;
+
+// GLFW callback adapters
+static void glfw_error_callback(int error, const char* description)
+{
+    fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+
+static void glfw_cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    if (gui_mouse_down) {
+        motion(static_cast<int>(xpos), static_cast<int>(ypos));
+    }
+}
+
+static void glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    if (g_MouseFunc) {
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+        // Convert GLFW button/action to GLUT-style parameters
+        int glut_state = (action == GLFW_PRESS) ? 0 : 1; // GLUT_DOWN=0, GLUT_UP=1
+        g_MouseFunc(button, glut_state, static_cast<int>(xpos), static_cast<int>(ypos));
+    }
+}
+
+static void glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+    wheel(0, static_cast<int>(yoffset), static_cast<int>(xpos), static_cast<int>(ypos));
+}
+
+static void glfw_framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    reshape(width, height);
 }
 
 bool initGL(int* argc, char** argv, const std::string& winTitle, void (*display)(), void (*mouse)(int, int, int, int))
 {
-    glutInit(argc, argv);
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-    glutInitWindowSize(window_width, window_height);
-    if (glutCreateWindow(winTitle.c_str()) <= 0)
-        return false; // window creation failed
+    // Store callbacks
+    g_DisplayFunc = display;
+    g_MouseFunc = mouse;
+
+    // Setup GLFW
+    glfwSetErrorCallback(glfw_error_callback);
+    if (!glfwInit())
+        return false;
+
+    // Create window
+    g_Window = glfwCreateWindow(window_width, window_height, winTitle.c_str(), NULL, NULL);
+    if (g_Window == NULL)
+        return false;
+
+    glfwMakeContextCurrent(g_Window);
+    glfwSwapInterval(1); // Enable vsync
 
 #ifdef _WIN32
-    HWND hwnd = FindWindow(NULL, winTitle.c_str()); // The window title must match exactly
-    if (!hwnd)
-		return false; //couldn't find window handle
-    HINSTANCE hInstance = GetModuleHandle(NULL);
-    SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1)));
-    SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1)));
+    // Set window icon on Windows
+    HWND hwnd = glfwGetWin32Window(g_Window);
+    if (hwnd) {
+        HINSTANCE hInstance = GetModuleHandle(NULL);
+        SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1)));
+        SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1)));
+    }
 #endif
 
-    while (glGetError() != GL_NO_ERROR) {} // Clear any existing GL errors from platform or driver init
+    // Setup GLFW callbacks
+    glfwSetCursorPosCallback(g_Window, glfw_cursor_position_callback);
+    glfwSetMouseButtonCallback(g_Window, glfw_mouse_button_callback);
+    glfwSetScrollCallback(g_Window, glfw_scroll_callback);
+    glfwSetFramebufferSizeCallback(g_Window, glfw_framebuffer_size_callback);
 
-    // default initialization
+    while (glGetError() != GL_NO_ERROR) {} // Clear any existing GL errors
+
+    // OpenGL initialization
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glEnable(GL_DEPTH_TEST);
-
-    // viewport
     glViewport(0, 0, window_width, window_height);
-
-    // projection
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     gluPerspective(60.0, (GLfloat)window_width / (GLfloat)window_height, 0.01, 10000.0);
-    glutReshapeFunc(reshape);
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     (void)io;
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 
+    // Setup Dear ImGui style
     ImGui::StyleColorsDark();
-    ImGui_ImplGLUT_Init();
-    ImGui_ImplGLUT_InstallFuncs();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(g_Window, true);
     ImGui_ImplOpenGL2_Init();
 
-    glutDisplayFunc(display);
-    glutMouseFunc(mouse);
-    glutMotionFunc(motion);
-    glutMouseWheelFunc(wheel);
-    glutSpecialFunc(specialDown);
-    glutSpecialUpFunc(specialUp);
-
     return (glGetError() == GL_NO_ERROR);
+}
+
+// Helper function to get the GLFW window
+GLFWwindow* getGLFWWindow() {
+    return g_Window;
+}
+
+// Main loop function for GLFW
+void runMainLoop() {
+    if (!g_Window || !g_DisplayFunc)
+        return;
+
+    while (!glfwWindowShouldClose(g_Window))
+    {
+        glfwPollEvents();
+        g_DisplayFunc();
+        glfwSwapBuffers(g_Window);
+    }
+
+    // Cleanup
+    ImGui_ImplOpenGL2_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
+    glfwDestroyWindow(g_Window);
+    glfwTerminate();
 }
 
 
@@ -914,10 +982,11 @@ void drawMiniCompassWithRuler(
 {
     auto drawLabel = [](float x, float y, float z, const char* text, float r, float g, float b)
         {
+            // Note: GLFW doesn't have bitmap font rendering like GLUT
+            // Text labels are now handled by ImGui overlays instead
+            // This function is kept for API compatibility but does not render text
             glColor3f(r, g, b);
             glRasterPos3f(x, y, z);
-            for (const char* c = text; *c; ++c)
-                glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10, *c);
         };
 
     ImGuiIO& io = ImGui::GetIO();
@@ -956,7 +1025,7 @@ void drawMiniCompassWithRuler(
 
     float miniAxisLength = 1.0f;
 
-    // Snap ruler length to a "nice" round number (1, 2, or 5 × 10^n)
+    // Snap ruler length to a "nice" round number (1, 2, or 5 ï¿½ 10^n)
     float rawUnit = 0.1f * translate_z; // adjust factor to taste
     float base = pow(10.0f, floor(log10(rawUnit)));
     float normalized = rawUnit / base;

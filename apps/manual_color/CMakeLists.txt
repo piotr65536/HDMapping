@@ -20,11 +20,11 @@ target_include_directories(
           ${LASZIP_INCLUDE_DIR}/LASzip/include
           ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/include
           ${EXTERNAL_LIBRARIES_DIRECTORY}/observation_equations/codes
-          ${FREEGLUT_INCLUDE_DIR})
+          ${GLFW_INCLUDE_DIR})
 
 target_link_libraries(
   mandeye_with_360_camera_manual_coloring
-  PRIVATE ${FREEGLUT_LIBRARY}
+  PRIVATE ${GLFW_LIBRARY}
           ${OPENGL_gl_LIBRARY}
           OpenGL::GLU
           ${PLATFORM_LASZIP_LIB}

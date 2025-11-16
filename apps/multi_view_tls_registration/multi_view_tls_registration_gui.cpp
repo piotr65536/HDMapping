@@ -4,13 +4,18 @@
 #include <cmath>
 
 #include <imgui.h>
-#include <imgui_impl_glut.h>
+#include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl2.h>
 #include <ImGuizmo.h>
 #include <imgui_internal.h>
 
 #include <GL/glew.h>
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
+#ifdef _WIN32
+#include <GL/glu.h>
+#else
+#include <OpenGL/glu.h>
+#endif
 
 #include <Eigen/Eigen>
 
@@ -51,6 +56,9 @@
 #ifdef _WIN32
 #include <windows.h>
 #include "resource.h"
+// Undefine min/max macros from windows.h to avoid conflicts with std::min/std::max
+#undef min
+#undef max
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -1439,7 +1447,7 @@ void openSession()
             index_end = session.point_clouds_container.point_clouds.size() - 1;
 
             std::string newTitle = winTitle + " - " + truncPath(session_file_name);
-            glutSetWindowTitle(newTitle.c_str());
+            glfwSetWindowTitle(getGLFWWindow(), newTitle.c_str());
 
             for (const auto& pc : session.point_clouds_container.point_clouds)
                 session_total_number_of_points += pc.points_local.size();
@@ -2202,7 +2210,7 @@ void display()
     }
 
     ImGui_ImplOpenGL2_NewFrame();
-    ImGui_ImplGLUT_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
 
     if (ImGui::BeginMainMenuBar())
     {
@@ -3177,8 +3185,7 @@ void display()
     ImGui::Render();
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 
-    glutSwapBuffers();
-    glutPostRedisplay();
+    // Window swapping and event polling handled by runMainLoop()
 }
 
 Eigen::Vector3d GLWidgetGetOGLPos(int x, int y, const ObservationPicking& observation_picking)
@@ -3205,25 +3212,24 @@ void mouse(int glut_button, int state, int x, int y)
     io.MousePos = ImVec2((float)x, (float)y);
 
     int button = -1;
-    if (glut_button == GLUT_LEFT_BUTTON)
+    // GLFW button codes: 0=left, 1=right, 2=middle
+    if (glut_button == 0)
         button = 0;
-    if (glut_button == GLUT_RIGHT_BUTTON)
+    if (glut_button == 1)
         button = 1;
-    if (glut_button == GLUT_MIDDLE_BUTTON)
+    if (glut_button == 2)
         button = 2;
-    if (button != -1 && state == GLUT_DOWN)
+    if (button != -1 && state == 0) // 0=pressed
         io.MouseDown[button] = true;
-    if (button != -1 && state == GLUT_UP)
+    if (button != -1 && state == 1) // 1=released
         io.MouseDown[button] = false;
 
-    static int glutMajorVersion = glutGet(GLUT_VERSION) / 10000;
-    if (state == GLUT_DOWN && (glut_button == 3 || glut_button == 4) && glutMajorVersion < 3)
-        wheel(glut_button, glut_button == 3 ? 1 : -1, x, y);
+    // Wheel events handled by scroll callback in GLFW
 
     if (!io.WantCaptureMouse)
     {
 
-        if ((glut_button == GLUT_MIDDLE_BUTTON || glut_button == GLUT_LEFT_BUTTON) && state == GLUT_DOWN && io.KeyCtrl)
+        if ((glut_button == 2 || glut_button == 0) && state == 0 && io.KeyCtrl) // middle or left + Ctrl
         {
             if (session.ground_control_points.is_imgui)
             {
@@ -3271,7 +3277,7 @@ void mouse(int glut_button, int state, int x, int y)
             }
             else
             {
-                if (glut_button == GLUT_MIDDLE_BUTTON)
+                if (glut_button == 2) // middle button
                     if (session_loaded)
                         getClosestTrajectoryPoint(session, x, y, false);
                     else
@@ -3279,7 +3285,7 @@ void mouse(int glut_button, int state, int x, int y)
             }
         }
 
-        if (glut_button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN && io.KeyCtrl)
+        if (glut_button == 1 && state == 0 && io.KeyCtrl) // right button pressed + Ctrl
         {
             if (session_loaded)
                 getClosestTrajectoryPoint(session, x, y, false);
@@ -3287,7 +3293,7 @@ void mouse(int glut_button, int state, int x, int y)
                 setNewRotationCenter(x, y);
         }
 
-        if (state == GLUT_DOWN)
+        if (state == 0) // pressed
         {
             mouse_buttons |= 1 << glut_button;
 
@@ -3308,7 +3314,7 @@ void mouse(int glut_button, int state, int x, int y)
                     observation_picking.add_picked_to_current_observation(index_picked, p);
             }
         }
-        else if (state == GLUT_UP)
+        else if (state == 1) // released
             mouse_buttons = 0;
 
         mouse_old_x = x;
@@ -3323,10 +3329,9 @@ int main(int argc, char *argv[])
         initGL(&argc, argv, winTitle, display, mouse);
 
 
-        glutMainLoop();
+        runMainLoop();
 
-        ImGui_ImplOpenGL2_Shutdown();
-        ImGui_ImplGLUT_Shutdown();
+        // Cleanup handled by runMainLoop()
         ImGui::DestroyContext();
     }
     catch (const std::bad_alloc& e)

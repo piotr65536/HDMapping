@@ -8,13 +8,18 @@
 #include <filesystem>
 
 #include <imgui.h>
-#include <imgui_impl_glut.h>
+#include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl2.h>
 #include <ImGuizmo.h>
 #include <imgui_internal.h>
 
 #include <GL/glew.h>
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
+#ifdef _WIN32
+#include <GL/glu.h>
+#else
+#include <OpenGL/glu.h>
+#endif
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <nlohmann/json.hpp>
@@ -51,6 +56,9 @@
 #ifdef _WIN32
 #include <windows.h>
 #include "resource.h"
+// Undefine min/max macros from windows.h to avoid conflicts with std::min/std::max
+#undef min
+#undef max
 #endif
 
 std::string winTitle = std::string("Step 3 (Multi session registration) ") + HDMAPPING_VERSION_STRING;
@@ -2589,7 +2597,7 @@ void openProject()
         load_project_settings(fs::path(input_file_name).string(), project_settings);
 
         std::string newTitle = winTitle + " - " + truncPath(input_file_name);
-        glutSetWindowTitle(newTitle.c_str());
+        glfwSetWindowTitle(getGLFWWindow(), newTitle.c_str());
 
         loaded_sessions = false;
         time_stamp_offset = 0.0;
@@ -2605,7 +2613,7 @@ void saveProject()
         if (save_project_settings(fs::path(output_file_name).string(), project_settings))
         {
             std::string newTitle = winTitle + " - " + truncPath(output_file_name);
-            glutSetWindowTitle(newTitle.c_str());
+            glfwSetWindowTitle(getGLFWWindow(), newTitle.c_str());
         }
 }
 
@@ -3153,7 +3161,7 @@ void display()
         {
             glColor3f(pc.render_color[0], pc.render_color[1], pc.render_color[2]);
             glRasterPos3f(pc.m_pose(0, 3), pc.m_pose(1, 3), pc.m_pose(2, 3) + 0.1);
-            glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)std::to_string(i).c_str());
+            // Text rendering removed - use ImGui overlays instead
             i++;
         }
 
@@ -3170,7 +3178,7 @@ void display()
         {
             glColor3f(pc.render_color[0], pc.render_color[1], pc.render_color[2]);
             glRasterPos3f(pc.m_pose(0, 3), pc.m_pose(1, 3), pc.m_pose(2, 3) + 0.1);
-            glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)std::to_string(i).c_str());
+            // Text rendering removed - use ImGui overlays instead
             i++;
         }
 
@@ -3193,7 +3201,7 @@ void display()
                 glEnd();
 
                 glRasterPos3f((v1.x() + v2.x()) * 0.5, (v1.y() + v2.y()) * 0.5, (v1.z() + v2.z()) * 0.5 + 10 + 0.1);
-                glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)std::to_string(j).c_str());
+                // Text rendering removed - use ImGui overlays instead
             }
         }
 
@@ -3225,7 +3233,7 @@ void display()
             glEnd();
 
             glRasterPos3f((v1.x() + v2.x()) * 0.5, (v1.y() + v2.y()) * 0.5, (v1.z() + v2.z()) * 0.5 + 10 + 0.1);
-            glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)std::to_string(i).c_str());
+            // Text rendering removed - use ImGui overlays instead
         }
     }
     else
@@ -3338,7 +3346,7 @@ void display()
                     glEnd();
 
                     glRasterPos3f(c.x() + 10, c.y(), c.z());
-                    glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)gp.name.c_str());
+                    // Text rendering removed - use ImGui overlays instead
                 }
             }
         }
@@ -3347,7 +3355,7 @@ void display()
     // gnss.render(session.point_clouds_container);
 
     ImGui_ImplOpenGL2_NewFrame();
-    ImGui_ImplGLUT_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
 
     if (ImGui::BeginMainMenuBar())
     {
@@ -4405,8 +4413,7 @@ void display()
     ImGui::Render();
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 
-    glutSwapBuffers();
-    glutPostRedisplay();
+    // Window swapping and event polling handled by runMainLoop()
 }
 
 void mouse(int glut_button, int state, int x, int y)
@@ -4414,27 +4421,26 @@ void mouse(int glut_button, int state, int x, int y)
     ImGuiIO &io = ImGui::GetIO();
     io.MousePos = ImVec2((float)x, (float)y);
     int button = -1;
-    if (glut_button == GLUT_LEFT_BUTTON)
+    // GLFW button codes: 0=left, 1=right, 2=middle
+    if (glut_button == 0)
         button = 0;
-    if (glut_button == GLUT_RIGHT_BUTTON)
+    if (glut_button == 1)
         button = 1;
-    if (glut_button == GLUT_MIDDLE_BUTTON)
+    if (glut_button == 2)
         button = 2;
-    if (button != -1 && state == GLUT_DOWN)
+    if (button != -1 && state == 0) // 0=pressed
         io.MouseDown[button] = true;
-    if (button != -1 && state == GLUT_UP)
+    if (button != -1 && state == 1) // 1=released
         io.MouseDown[button] = false;
 
-    static int glutMajorVersion = glutGet(GLUT_VERSION) / 10000;
-    if (state == GLUT_DOWN && (glut_button == 3 || glut_button == 4) && glutMajorVersion < 3)
-        wheel(glut_button, glut_button == 3 ? 1 : -1, x, y);
+    // Wheel events handled by scroll callback in GLFW
 
     if (!io.WantCaptureMouse)
     {
-        if ((glut_button == GLUT_MIDDLE_BUTTON || glut_button == GLUT_RIGHT_BUTTON) && state == GLUT_DOWN && io.KeyCtrl)
+        if ((glut_button == 2 || glut_button == 1) && state == 0 && io.KeyCtrl) // middle or right + Ctrl
             setNewRotationCenter(x, y);
 
-        if (state == GLUT_DOWN)
+        if (state == 0) // pressed
         {
             mouse_buttons |= 1 << glut_button;
 
@@ -4457,7 +4463,7 @@ void mouse(int glut_button, int state, int x, int y)
                 }
             }*/
         }
-        else if (state == GLUT_UP)
+        else if (state == 1) // released
         {
             mouse_buttons = 0;
         }
@@ -4472,10 +4478,9 @@ int main(int argc, char *argv[])
     {
         initGL(&argc, argv, winTitle, display, mouse);
 
-        glutMainLoop();
+        runMainLoop();
 
-        ImGui_ImplOpenGL2_Shutdown();
-        ImGui_ImplGLUT_Shutdown();
+        // Cleanup handled by runMainLoop()
         ImGui::DestroyContext();
     }
     catch (const std::bad_alloc &e)

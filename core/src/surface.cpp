@@ -1,7 +1,7 @@
 #include <surface.h>
 #include <iostream>
 
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 
 #include <structures.h>
 #include <transformations.h>

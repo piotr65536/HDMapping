@@ -5,7 +5,7 @@
 #include <string>
 #include <point_clouds.h>
 #if WITH_GUI == 1
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 #endif
 
 struct ControlPoint{

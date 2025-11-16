@@ -1,6 +1,6 @@
 #include <single_trajectory_viewer.h>
 #include "pfd_wrapper.hpp"
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 #include <transformations.h>
 
 #include <filesystem>

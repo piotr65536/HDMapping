@@ -32,6 +32,6 @@ target_include_directories(
           ${EIGEN3_INCLUDE_DIR}
           ${EXTERNAL_LIBRARIES_DIRECTORY}/json/include
           ${EXTERNAL_LIBRARIES_DIRECTORY}/portable-file-dialogs-master
-          ${EXTERNAL_LIBRARIES_DIRECTORY}/freeglut/include
+          ${GLFW_INCLUDE_DIR}
           ${LASZIP_INCLUDE_DIR}/LASzip/include
           )

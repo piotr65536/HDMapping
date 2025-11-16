@@ -1,9 +1,14 @@
 
 #include <iostream>
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
+#ifdef _WIN32
+#include <GL/glu.h>
+#else
+#include <OpenGL/glu.h>
+#endif
 
 #include "imgui.h"
-#include "imgui_impl_glut.h"
+#include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl2.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -154,10 +159,7 @@ int main(int argc, char *argv[])
     SystemData::camera_pose = affine_matrix_from_pose_tait_bryan(pose);
 
     initGL(&argc, argv);
-    glutDisplayFunc(display);
-    glutMouseFunc(mouse);
-    glutMotionFunc(motion);
-    glutMainLoop();
+    runMainLoop();
 }
 
 void imagePicker(const std::string &name, ImTextureID tex1, std::vector<ImVec2> &point_picked, std::vector<ImVec2> point_pickedInPointcloud)
@@ -933,7 +935,7 @@ void display()
         glEnd();
     }
     ImGui_ImplOpenGL2_NewFrame();
-    ImGui_ImplGLUT_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
 
     std::vector<ImVec2> picked3DPoints(SystemData::pointPickedPointCloud.size());
     std::transform(SystemData::pointPickedPointCloud.begin(), SystemData::pointPickedPointCloud.end(), picked3DPoints.begin(), UnprojectPoint);
@@ -1182,38 +1184,35 @@ void display()
 
     ImGui::Render();
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
-    glutSwapBuffers();
-    glutPostRedisplay();
 }
 
 void mouse(int glut_button, int state, int x, int y)
 {
-    ImGui_ImplGLUT_MouseFunc(glut_button, state, x, y);
     ImGuiIO &io = ImGui::GetIO();
     int button = -1;
-    if (glut_button == GLUT_LEFT_BUTTON)
+    if (glut_button == 0) // Left button
         button = 0;
-    if (glut_button == GLUT_RIGHT_BUTTON)
+    if (glut_button == 1) // Right button
         button = 1;
-    if (glut_button == GLUT_MIDDLE_BUTTON)
+    if (glut_button == 2) // Middle button
         button = 2;
 
     if (!io.WantCaptureMouse)
     {
-        if (state == GLUT_DOWN)
+        if (state == 0) // Button down
         {
             mouse_buttons |= 1 << glut_button;
         }
-        else if (state == GLUT_UP)
+        else if (state == 1) // Button up
         {
             mouse_buttons = 0;
         }
         mouse_old_x = x;
         mouse_old_y = y;
 
-        if (state == GLUT_DOWN)
+        if (state == 0) // Button down
         {
-            if (glut_button == GLUT_MIDDLE_BUTTON && io.KeyShift)
+            if (glut_button == 2 && io.KeyShift) // Middle button
             {
                 SystemData::clickedRay = GetRay(x, y);
 
@@ -1241,7 +1240,7 @@ void mouse(int glut_button, int state, int x, int y)
                     SystemData::pointPickedPointCloud.push_back(SystemData::points.at(index).point);
                 }
             }
-            if (glut_button == GLUT_RIGHT_BUTTON && io.KeyShift)
+            if (glut_button == 1 && io.KeyShift) // Right button
             {
                 if (SystemData::pointPickedPointCloud.size() > 0)
                 {
@@ -1254,7 +1253,6 @@ void mouse(int glut_button, int state, int x, int y)
 
 void motion(int x, int y)
 {
-    ImGui_ImplGLUT_MotionFunc(x, y);
     ImGuiIO &io = ImGui::GetIO();
 
     if (!io.WantCaptureMouse)
@@ -1280,7 +1278,6 @@ void motion(int x, int y)
         mouse_old_x = x;
         mouse_old_y = y;
     }
-    glutPostRedisplay();
 }
 
 void reshape(int w, int h)
@@ -1295,33 +1292,6 @@ void reshape(int w, int h)
 
 bool initGL(int *argc, char **argv)
 {
-    glutInit(argc, argv);
-    glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
-    glutInitWindowSize(window_width, window_height);
-    glutCreateWindow("MANDEYE with 360 camera manual coloring " HDMAPPING_VERSION_STRING);
-    glutDisplayFunc(display);
-    glutMotionFunc(motion);
-
-    // default initialization
-    glClearColor(1.0, 1.0, 1.0, 1.0);
-    // glEnable(GL_DEPTH_TEST);
-
-    glViewport(0, 0, window_width, window_height);
-
-    // projection
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(60.0, (GLfloat)window_width / (GLfloat)window_height, 0.01,
-                   1000.0);
-    glutReshapeFunc(reshape);
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void)io;
-
-    ImGui::StyleColorsDark();
-    ImGui_ImplGLUT_Init();
-    ImGui_ImplGLUT_InstallFuncs();
-    ImGui_ImplOpenGL2_Init();
-
+    initGL("MANDEYE with 360 camera manual coloring " HDMAPPING_VERSION_STRING, window_width, window_height, display, mouse, motion, reshape);
     return true;
 }

@@ -34,12 +34,12 @@ target_include_directories(
           ${EXTERNAL_LIBRARIES_DIRECTORY}/portable-file-dialogs-master
           ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/include
           ${EXTERNAL_LIBRARIES_DIRECTORY}/observation_equations/codes
-          ${EXTERNAL_LIBRARIES_DIRECTORY}/freeglut/include
+          ${GLFW_INCLUDE_DIR}
           ${LASZIP_INCLUDE_DIR}/LASzip/include)
 
 target_link_libraries(
   multi_session_registration_step_3
-  ${FREEGLUT_LIBRARY}
+  ${GLFW_LIBRARY}
   ${OPENGL_gl_LIBRARY}
   OpenGL::GLU
   ${PLATFORM_LASZIP_LIB}

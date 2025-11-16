@@ -5,7 +5,7 @@
 #include <Eigen/Eigen>
 #include <map>
 #include <imgui.h>
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 #include <structures.h>
 #include <transformations.h>
 

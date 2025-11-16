@@ -1,11 +1,11 @@
 ﻿#include <imgui.h>
-#include <imgui_impl_glut.h>
+#include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl2.h>
 #include <ImGuizmo.h>
 #include <imgui_internal.h>
 
 #include <GL/glew.h>
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 #include <portable-file-dialogs.h>
 
 #include "lidar_odometry_gui_utils.h"
@@ -28,6 +28,9 @@
 #ifdef _WIN32
 #include <windows.h>
 #include "resource.h"
+// Undefine min/max macros from windows.h to avoid conflicts with std::min/std::max
+#undef min
+#undef max
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -207,7 +210,7 @@ void step1(const std::atomic<bool> &loPause)
         if (!input_folder_name.empty())
         {
             std::string newTitle = winTitle + " - ..\\" + std::filesystem::path(input_folder_name).filename().string();
-            glutSetWindowTitle(newTitle.c_str());
+            glfwSetWindowTitle(getGLFWWindow(), newTitle.c_str());
 
             for (const auto &entry : fs::directory_iterator(input_folder_name))
                 if (entry.is_regular_file())
@@ -1472,7 +1475,7 @@ void display()
     }
 
     ImGui_ImplOpenGL2_NewFrame();
-    ImGui_ImplGLUT_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
 
     if (!loRunning)
     {
@@ -1834,8 +1837,7 @@ void display()
     ImGui::Render();
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 
-    glutSwapBuffers();
-    glutPostRedisplay();
+    // Window swapping and event polling handled by runMainLoop()
 }
 
 void on_exit(){
@@ -1851,29 +1853,28 @@ void mouse(int glut_button, int state, int x, int y)
     io.MousePos = ImVec2((float)x, (float)y);
 
     int button = -1;
-    if (glut_button == GLUT_LEFT_BUTTON)
+    // GLFW button codes: 0=left, 1=right, 2=middle
+    if (glut_button == 0)
         button = 0;
-    if (glut_button == GLUT_RIGHT_BUTTON)
+    if (glut_button == 1)
         button = 1;
-    if (glut_button == GLUT_MIDDLE_BUTTON)
+    if (glut_button == 2)
         button = 2;
-    if (button != -1 && state == GLUT_DOWN)
+    if (button != -1 && state == 0) // 0=pressed
         io.MouseDown[button] = true;
-    if (button != -1 && state == GLUT_UP)
+    if (button != -1 && state == 1) // 1=released
         io.MouseDown[button] = false;
 
-    static int glutMajorVersion = glutGet(GLUT_VERSION) / 10000;
-    if (state == GLUT_DOWN && (glut_button == 3 || glut_button == 4) && glutMajorVersion < 3)
-        wheel(glut_button, glut_button == 3 ? 1 : -1, x, y);
+    // Wheel events handled by scroll callback in GLFW
 
     if (!io.WantCaptureMouse)
     {
-        if ((glut_button == GLUT_MIDDLE_BUTTON || glut_button == GLUT_RIGHT_BUTTON) && state == GLUT_DOWN && io.KeyCtrl)
+        if ((glut_button == 2 || glut_button == 1) && state == 0 && io.KeyCtrl) // middle or right + Ctrl
             setNewRotationCenter(x, y);
 
-        if (state == GLUT_DOWN)
+        if (state == 0) // pressed
             mouse_buttons |= 1 << glut_button;
-        else if (state == GLUT_UP)
+        else if (state == 1) // released
             mouse_buttons = 0;
         
         mouse_old_x = x;
@@ -1926,13 +1927,15 @@ int main(int argc, char *argv[])
             std::cout << argv[0] << " input_folder parameters(*.toml) output_folder" << std::endl;
 
             initGL(&argc, argv, winTitle, display, mouse);
-            glutCloseFunc(on_exit);
+            
+            // Set close callback
+            glfwSetWindowCloseCallback(getGLFWWindow(), [](GLFWwindow* window) {
+                on_exit();
+            });
 
-            glutMainLoop();
+            runMainLoop();
 
-            ImGui_ImplOpenGL2_Shutdown();
-            ImGui_ImplGLUT_Shutdown();
-            ImGui::DestroyContext();
+            // Cleanup handled by runMainLoop()
         }
     }
     catch (const std::bad_alloc& e)

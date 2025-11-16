@@ -6,7 +6,7 @@ add_executable(hd_mapper hd_mapper.cpp)
 target_link_libraries(
   hd_mapper
   PRIVATE
-          ${FREEGLUT_LIBRARY}
+          ${GLFW_LIBRARY}
           ${OPENGL_gl_LIBRARY}
           OpenGL::GLU
           ${PLATFORM_LASZIP_LIB}
@@ -25,7 +25,7 @@ target_include_directories(
           ${EXTERNAL_LIBRARIES_DIRECTORY}/imgui/backends
           ${EXTERNAL_LIBRARIES_DIRECTORY}/ImGuizmo
           ${EXTERNAL_LIBRARIES_DIRECTORY}/glew-2.2.0/include
-          ${FREEGLUT_INCLUDE_DIR}
+          ${GLFW_INCLUDE_DIR}
           ${EXTERNAL_LIBRARIES_DIRECTORY}/json/include
           ${EXTERNAL_LIBRARIES_DIRECTORY}/portable-file-dialogs-master
           ${LASZIP_INCLUDE_DIR}/LASzip/include)

@@ -262,29 +262,42 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include(cmake/platform.cmake)
-include(cmake/imgui.cmake)
-include(cmake/imguizmo.cmake)
-include(cmake/implot.cmake)
 
 add_subdirectory(${EXTERNAL_LIBRARIES_DIRECTORY}/eigen)
 set(EIGEN3_INCLUDE_DIR ${EXTERNAL_LIBRARIES_DIRECTORY}/eigen)
 MESSAGE(STATUS "Using bundled Eigen3 : ${EIGEN3_INCLUDE_DIR}")
 
-option(BUILD_WITH_BUNDLED_FREEGLUT "Build with bundled FreeGlut" ON)
-if (BUILD_WITH_BUNDLED_FREEGLUT)
-    set(FREEGLUT_BUILD_DEMOS
-            OFF
-            CACHE BOOL "" FORCE)
-    add_subdirectory(${EXTERNAL_LIBRARIES_DIRECTORY}/freeglut)
-    set(FREEGLUT_INCLUDE_DIR ${EXTERNAL_LIBRARIES_DIRECTORY}/freeglut/include)
-    set(FREEGLUT_LIBRARY freeglut)
-    MESSAGE(STATUS "Using bundled FreeGlut")
+# Setup GLFW before imgui since imgui depends on it
+option(BUILD_WITH_BUNDLED_GLFW "Build with bundled GLFW" ON)
+if (BUILD_WITH_BUNDLED_GLFW)
+    set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+    
+    # Fetch GLFW from GitHub
+    include(FetchContent)
+    FetchContent_Declare(
+        glfw
+        GIT_REPOSITORY https://github.com/glfw/glfw.git
+        GIT_TAG        3.3.8
+    )
+    FetchContent_MakeAvailable(glfw)
+    
+    set(GLFW_INCLUDE_DIR ${glfw_SOURCE_DIR}/include)
+    set(GLFW_LIBRARY glfw)
+    MESSAGE(STATUS "Using bundled GLFW")
 else()
-    find_package(GLUT REQUIRED)
-    set(FREEGLUT_INCLUDE_DIR ${GLUT_INCLUDE_DIR})
-    set(FREEGLUT_LIBRARY ${GLUT_glut_LIBRARY})
-    MESSAGE(STATUS "FreeGlut include dir: ${FREEGLUT_INCLUDE_DIR}")
+    find_package(glfw3 REQUIRED)
+    set(GLFW_INCLUDE_DIR ${GLFW3_INCLUDE_DIR})
+    set(GLFW_LIBRARY glfw)
+    MESSAGE(STATUS "GLFW include dir: ${GLFW_INCLUDE_DIR}")
 endif ()
+
+# Now include imgui and other GUI libraries that depend on GLFW
+include(cmake/imgui.cmake)
+include(cmake/imguizmo.cmake)
+include(cmake/implot.cmake)
 
 option(BUILD_WITH_BUNDLED_LIBLASZIP "Build with bundled Lib LASZIP" ON)
 if (BUILD_WITH_BUNDLED_LIBLASZIP)
@@ -378,7 +391,7 @@ set(CPACK_PACKAGE_VERSION "${HDMAPPING_VERSION_MAJOR}.${HDMAPPING_VERSION_MINOR}
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "HD Mapping debian package for Mandeye")
 set(CPACK_PACKAGE_CONTACT "januszbedkowski@gmail.com")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Janusz Bedkowski <januszbedkowski@gmail.com>")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.28), libstdc++6 (>= 8.3.0), freeglut3-dev, libeigen3-dev, liblaszip-dev")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.28), libstdc++6 (>= 8.3.0), libglfw3-dev, libeigen3-dev, liblaszip-dev")
 if(WIN32)
     set(CPACK_GENERATOR "ZIP")
 else()

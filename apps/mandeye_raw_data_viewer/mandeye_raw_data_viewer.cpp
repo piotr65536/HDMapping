@@ -1,11 +1,16 @@
 #include <imgui.h>
-#include <imgui_impl_glut.h>
+#include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl2.h>
 #include <implot/implot.h>
 #include <imgui_internal.h>
 
 #include <GL/glew.h>
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
+#ifdef _WIN32
+#include <GL/glu.h>
+#else
+#include <OpenGL/glu.h>
+#endif
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -216,7 +221,6 @@ void motion(int x, int y)
         mouse_old_x = x;
         mouse_old_y = y;
     }
-    glutPostRedisplay();
 }
 
 static ImVec2 DisplayImageFit(ImTextureID tex, int tex_w, int tex_h, bool allow_upscale = true)
@@ -1216,48 +1220,18 @@ void display()
     }
 
     ImGui_ImplOpenGL2_NewFrame();
-    ImGui_ImplGLUT_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
 
     project_gui();
 
     ImGui::Render();
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
-
-    glutSwapBuffers();
-    glutPostRedisplay();
 }
 
 bool initGL(int *argc, char **argv)
 {
-    glutInit(argc, argv);
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-    glutInitWindowSize(window_width, window_height);
-    glutCreateWindow("mandeye raw data viewer " HDMAPPING_VERSION_STRING);
-    glutDisplayFunc(display);
-    glutMotionFunc(motion);
-
-    // default initialization
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    glEnable(GL_DEPTH_TEST);
-
-    // viewport
-    glViewport(0, 0, window_width, window_height);
-
-    // projection
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(60.0, (GLfloat)window_width / (GLfloat)window_height, 0.01, 10000.0);
-    glutReshapeFunc(reshape);
-    ImGui::CreateContext();
+    initGL("mandeye raw data viewer " HDMAPPING_VERSION_STRING, window_width, window_height, display, mouse, motion, reshape);
     ImPlot::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void)io;
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-
-    ImGui::StyleColorsDark();
-    ImGui_ImplGLUT_Init();
-    ImGui_ImplGLUT_InstallFuncs();
-    ImGui_ImplOpenGL2_Init();
     return true;
 }
 
@@ -1268,35 +1242,34 @@ void mouse(int glut_button, int state, int x, int y)
     ImGuiIO &io = ImGui::GetIO();
     io.MousePos = ImVec2((float)x, (float)y);
     int button = -1;
-    if (glut_button == GLUT_LEFT_BUTTON)
+    if (glut_button == 0) // Left button
         button = 0;
-    if (glut_button == GLUT_RIGHT_BUTTON)
+    if (glut_button == 1) // Right button
         button = 1;
-    if (glut_button == GLUT_MIDDLE_BUTTON)
+    if (glut_button == 2) // Middle button
         button = 2;
-    if (button != -1 && state == GLUT_DOWN)
+    if (button != -1 && state == 0) // Button down
         io.MouseDown[button] = true;
-    if (button != -1 && state == GLUT_UP)
+    if (button != -1 && state == 1) // Button up
         io.MouseDown[button] = false;
 
-    static int glutMajorVersion = glutGet(GLUT_VERSION) / 10000;
-    if (state == GLUT_DOWN && (glut_button == 3 || glut_button == 4) &&
-        glutMajorVersion < 3)
-    {
-        wheel(glut_button, glut_button == 3 ? 1 : -1, x, y);
-    }
+    // GLFW handles mouse wheel events via callback, no version check needed
+    // if (state == 0 && (glut_button == 3 || glut_button == 4))
+    // {
+    //     wheel(glut_button, glut_button == 3 ? 1 : -1, x, y);
+    // }
 
     if (!io.WantCaptureMouse)
     {
-        if (glut_button == GLUT_MIDDLE_BUTTON && state == GLUT_DOWN && io.KeyCtrl)
+        if (glut_button == 2 && state == 0 && io.KeyCtrl) // Middle button down
         {
         }
 
-        if (state == GLUT_DOWN)
+        if (state == 0) // Button down
         {
             mouse_buttons |= 1 << glut_button;
         }
-        else if (state == GLUT_UP)
+        else if (state == 1) // Button up
         {
             mouse_buttons = 0;
         }
@@ -1348,17 +1321,10 @@ void wheel(int button, int dir, int x, int y)
 int main(int argc, char *argv[])
 {
     initGL(&argc, argv);
-    glutDisplayFunc(display);
-    glutMouseFunc(mouse);
-    glutMotionFunc(motion);
-    glutMouseWheelFunc(wheel);
-    glutMainLoop();
-
-    ImGui_ImplOpenGL2_Shutdown();
-    ImGui_ImplGLUT_Shutdown();
-
+    setMouseWheelCallback(wheel);
+    runMainLoop();
+    
     ImPlot::DestroyContext();
-    ImGui::DestroyContext();
     return 0;
 }
 

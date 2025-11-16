@@ -8,7 +8,7 @@
 
 #include <laszip/laszip_api.h>
 
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 #include "pfd_wrapper.hpp"
 
 void LazWrapper::imgui(CommonData& common_data, const ProjectSettings& project_setings) {

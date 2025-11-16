@@ -1,5 +1,5 @@
 #include <observation_picking.h>
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 
 #include <iostream>
 #include <fstream>
@@ -99,8 +99,9 @@ void ObservationPicking::render()
 			glVertex3f(label_dist - i * 2, intersections[i].translation[1], intersections[i].translation[2]);
 		glEnd();
 		
-		glRasterPos3f(label_dist + 2 - i * 2, intersections[i].translation[1], intersections[i].translation[2]);
-		glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, std::to_string(i).c_str()[0]);
+		// Note: GLFW doesn't have bitmap font rendering like GLUT
+		// glRasterPos3f(label_dist + 2 - i * 2, intersections[i].translation[1], intersections[i].translation[2]);
+		// glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, std::to_string(i).c_str()[0]);
 	}
 }
 

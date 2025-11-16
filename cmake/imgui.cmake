@@ -9,12 +9,12 @@ set(IMGUI_SOURCE_FILES
     ${IMGUI_LIBRARY_DIRECTORY}/imgui_tables.cpp
     ${IMGUI_LIBRARY_DIRECTORY}/imgui_widgets.cpp
     ${IMGUI_LIBRARY_DIRECTORY}/imgui.cpp
-    ${IMGUI_LIBRARY_BACKEND_DIRECTORY}/imgui_impl_glut.cpp
+    ${IMGUI_LIBRARY_BACKEND_DIRECTORY}/imgui_impl_glfw.cpp
     ${IMGUI_LIBRARY_BACKEND_DIRECTORY}/imgui_impl_opengl2.cpp)
 
 set(IMGUI_HEADER_FILES
     ${IMGUI_LIBRARY_DIRECTORY}/imgui.h
-    ${IMGUI_LIBRARY_BACKEND_DIRECTORY}/imgui_impl_glut.h
+    ${IMGUI_LIBRARY_BACKEND_DIRECTORY}/imgui_impl_glfw.h
     ${IMGUI_LIBRARY_BACKEND_DIRECTORY}/imgui_impl_opengl2.h)
 
 set(IMGUI_FILES ${IMGUI_SOURCE_FILES} ${IMGUI_HEADER_FILES})
@@ -22,4 +22,5 @@ add_definitions(-DImDrawIdx=unsigned\ int)
 add_library(imgui STATIC ${IMGUI_FILES})
 target_include_directories(
     imgui PRIVATE ${IMGUI_LIBRARY_DIRECTORY} ${IMGUI_LIBRARY_BACKEND_DIRECTORY}
-    ${EXTERNAL_LIBRARIES_DIRECTORY}/freeglut/include)
+    ${GLFW_INCLUDE_DIR})
+target_link_libraries(imgui PRIVATE ${GLFW_LIBRARY})

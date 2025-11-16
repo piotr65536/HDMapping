@@ -8,7 +8,7 @@
 #include <fstream>
 #include <thread>
 
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 
 #include <transformations.h>
 #include <python-scripts/point-to-point-metrics/point_to_point_source_to_target_tait_bryan_wc_jacobian.h>

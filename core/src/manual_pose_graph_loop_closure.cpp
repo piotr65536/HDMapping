@@ -423,13 +423,15 @@ void ManualPoseGraphLoopClosure::Render(PointClouds &point_clouds_container,
     }
     glEnd();
 
-    int i = 0;
-    for (auto &pc : point_clouds_container.point_clouds)
-    {
-        glRasterPos3f(pc.m_pose(0, 3), pc.m_pose(1, 3), pc.m_pose(2, 3) + 0.1);
-        glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)std::to_string(i).c_str());
-        i++;
-    }
+    // Note: GLFW doesn't have bitmap font rendering like GLUT
+    // Text labels should be rendered using ImGui overlays instead
+    // int i = 0;
+    // for (auto &pc : point_clouds_container.point_clouds)
+    // {
+    //     glRasterPos3f(pc.m_pose(0, 3), pc.m_pose(1, 3), pc.m_pose(2, 3) + 0.1);
+    //     glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)std::to_string(i).c_str());
+    //     i++;
+    // }
 
     for (int i = 0; i < edges.size(); i++)
     {
@@ -461,8 +463,9 @@ void ManualPoseGraphLoopClosure::Render(PointClouds &point_clouds_container,
         glVertex3f(m2.x(), m2.y(), m2.z());
         glEnd();
 
-        glRasterPos3f(m2.x(), m2.y(), m2.z() + 0.1);
-        glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)std::to_string(i).c_str());
+        // Note: GLFW doesn't have bitmap font rendering like GLUT
+        // glRasterPos3f(m2.x(), m2.y(), m2.z() + 0.1);
+        // glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)std::to_string(i).c_str());
     }
 }
 

@@ -4,7 +4,7 @@
 #include <plycpp.h>
 #include <portable-file-dialogs.h>
 
-#include <GL/freeglut.h>
+#include <GLFW/glfw3.h>
 
 #include <thread>
 #include <iostream>
